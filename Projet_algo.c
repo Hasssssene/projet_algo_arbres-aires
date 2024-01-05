@@ -19,7 +19,44 @@ int parentValue = 0;
 int levelValue = 1;
 
 
+int NodeExists(NaryTreeNode* node, int value) {
+    if (node == NULL) {
+        return 0;  // Node doesn't exist
+    }
+
+    if (node->data == value) {
+        return 1;  // Node with the specified value already exists
+    }
+
+    for (int i = 0; i < node->childCount; ++i) {
+        if (NodeExists(node->children[i], value)) {
+            return 1;  // Node found in one of the children
+        }
+    }
+
+    return 0;  // Node not found
+}
+
+
 void InsertNode(NaryTreeNode** node, int value, int parentValue, int level) {
+    // Check if the value already exists in the tree
+    if (NodeExists(*node, value)) {
+        InitWindow(300, 100, "Error");
+        SetTargetFPS(60);
+
+        while (!WindowShouldClose()) {
+            BeginDrawing();
+            ClearBackground(RAYWHITE);
+
+            DrawText("Error: Value already exists", 10, 30, 20, RED);//Pops a small error window if the value already exists
+
+            EndDrawing();
+        }
+
+        CloseWindow();
+        return;
+    }
+
     if (*node == NULL) {
         *node = (NaryTreeNode*)malloc(sizeof(NaryTreeNode));
         (*node)->data = value;
@@ -31,39 +68,75 @@ void InsertNode(NaryTreeNode** node, int value, int parentValue, int level) {
         InsertNode(&((*node)->children[(*node)->childCount]), value, parentValue, level - 1);
         (*node)->childCount++;
     } else {
-        for (int i = 0; i < (*node)->childCount; ++i) {
-            InsertNode(&((*node)->children[i]), value, parentValue, level);
+        int i;
+        for (i = 0; i < (*node)->childCount; ++i) {
+            if ((*node)->children[i]->data == parentValue) {
+                InsertNode(&((*node)->children[i]), value, parentValue, level);
+                break;  // Break after finding the correct child
+            }
+        }
+
+        // If the loop didn't break, then the parentValue was not found in the current node's children
+        if (i == (*node)->childCount) {
+            for (i = 0; i < (*node)->childCount; ++i) {
+                InsertNode(&((*node)->children[i]), value, parentValue, level);
+            }
         }
     }
 }
 
 
-void DeleteTree() {
-    //to add later
-      
+void DeleteTree(NaryTreeNode* node) {
+    if (node != NULL) {
+        for (int i = 0; i < node->childCount; ++i) {
+            DeleteTree(node->children[i]);
+        }
+        free(node);
+    }  
 }
 
 
-void DeleteNode() {
-    //to add later
- 
+void DeleteNode(NaryTreeNode** node, int value) {
+    if (*node != NULL) {
+        for (int i = 0; i < (*node)->childCount; ++i) {
+            if ((*node)->children[i]->data == value) {
+                // Node found, delete it and its children
+                DeleteTree((*node)->children[i]);
+                // Remove the pointer to the deleted child
+                for (int j = i; j < (*node)->childCount - 1; ++j) {
+                    (*node)->children[j] = (*node)->children[j + 1];
+                }
+                (*node)->childCount--;
+                return;
+            } else {
+                // Recursively search in the children
+                DeleteNode(&((*node)->children[i]), value);
+            }
+        }
+    }
 }
 
-
-void SearchNode(){
+//void SearchNode(){
     //to add later
-    
-}
+//}
 
 
 
-void DrawTreeNode(NaryTreeNode *node, int x, int y, int radius, float parentAngle) {
+
+
+void DrawTreeNode(NaryTreeNode *node, int x, int y, int radius, float parentAngle, int level) {
     if (node == NULL) {
         return;
     }
-     
+
+    // Calculate text width and height for centering
+    const char *text = TextFormat(" %d", node->data);
+
+    
+    int fontSize = (int)(radius * 0.45);  // Adjust font size based on the radius with a slightly larger multiplier
+
     DrawCircle(x, y, radius, LIGHTGRAY);
-    DrawText(TextFormat(" %d", node->data), x - radius / 4, y - radius / 2, 40*3*radius/200, BLACK);
+    DrawText(text, x - MeasureText(text, fontSize) / 2, y - fontSize / 2, fontSize, BLACK);
 
     for (int i = 0; i < node->childCount; i++) {
         if (node->children[i] == NULL) {
@@ -71,17 +144,26 @@ void DrawTreeNode(NaryTreeNode *node, int x, int y, int radius, float parentAngl
             break;
         }
 
-        float angle = parentAngle + (180.0 / (node->childCount)) * (i + 0.5); // Evenly distribute children around the parent
-        float length = radius * 2;
+        float angle = parentAngle + (180.0 / (node->childCount)) * (i + 0.5);
+        float baseLength = radius * 3;
+
+        
+        float length = baseLength - (level - 1) * 2;// Adjust the length based on the level
+
         Vector2 position = { cos(DEG2RAD * angle), sin(DEG2RAD * angle) };
         position = Vector2Scale(position, length);
         position = Vector2Add(position, (Vector2){ (float)x, (float)y });
-        DrawLine(x, y, position.x, position.y, BLACK);
-        
-        DrawTreeNode(node->children[i], position.x, position.y, radius / 2, parentAngle);
-      
+        DrawLine(x, y + fontSize / 2, position.x, position.y, LIGHTGRAY);
+
+        DrawTreeNode(node->children[i], position.x, position.y, radius / 2.1, parentAngle, level + 1);
     }
 }
+
+
+
+
+
+
 
 int main() {
     const int screenWidth = 1800;
@@ -109,24 +191,19 @@ int main() {
         }
 
         if (CheckCollisionPointRec(mousePos, resetButton) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-            DeleteTree();
-                //to add later
-
-            
+            DeleteTree(root);
+            root = NULL;
         }
 
         if (CheckCollisionPointRec(mousePos, deleteButton) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-            DeleteNode();
-                //to add later
-
-           
+            DeleteNode(&root, inputValue);
+            inputValue = 0;
         }
          if ((CheckCollisionPointRec(mousePos, searchButton) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) || (IsKeyPressed(KEY_ENTER))) {
-          
-            SearchNode();
-                //to add later
-
-        }
+           
+           // SearchNode();
+         }
+        
         
         int key = GetKeyPressed();
         if ((key >= KEY_ZERO) && (key <= KEY_NINE)) {
@@ -139,7 +216,7 @@ int main() {
                 levelValue = levelValue * 10 + (key - KEY_ZERO);
             }
         } else if ((key == KEY_BACKSPACE)) {
-            if (CheckCollisionPointRec(mousePos, valueBox) ) {
+[O            if (CheckCollisionPointRec(mousePos, valueBox) ) {
                if (inputValue <= 10) {
                     inputValue=0;
                 }
@@ -171,16 +248,24 @@ int main() {
         DrawRectangleRec(insertButton, GRAY);
         DrawText("Insert Node", insertButton.x + 10, insertButton.y + 10, 15, BLACK);
         DrawRectangleRec(deleteButton, GRAY);
-        DrawText("delete Tree", deleteButton.x + 10, deleteButton.y + 10, 15, BLACK);
+        DrawText("Delete Tree", deleteButton.x + 10, deleteButton.y + 10, 15, BLACK);
         DrawRectangleRec(resetButton, GRAY);
         DrawText("Reset Tree", resetButton.x + 10, resetButton.y + 10, 15, BLACK);
         
-      
+        
+
+
         DrawRectangleRec(searchButton, GRAY);
         DrawText("Search", searchButton.x + 10, searchButton.y + 10, 15, BLACK);
       
 
-        DrawTreeNode(root, screenWidth / 2, screenHeight / 3, 70, 0);
+        DrawTreeNode(root, screenWidth / 2, screenHeight / 3, 70, 0,1);
+
+        
+        
+
+
+
 
 
         EndDrawing();

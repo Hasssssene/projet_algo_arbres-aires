@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include "raymath.h"
 #include <math.h>
-
+#include <time.h>
 #define MAX_CHILDREN 5
 
 typedef struct NaryTreeNode {
@@ -13,12 +13,13 @@ typedef struct NaryTreeNode {
     struct NaryTreeNode* children[MAX_CHILDREN];
 } NaryTreeNode;
 
+
 NaryTreeNode* root = NULL;
 int inputValue = 0;
 int parentValue = 0;
 int levelValue = 1;
 int searchResult = -1;
-
+int itexists=0;
 int searchState = 0;
 Color searchRectangleColor = GRAY;
 
@@ -43,6 +44,15 @@ int NodeExists(NaryTreeNode* node, int value) {
 }
 
 void InsertNode(NaryTreeNode** node, int value, int parentValue, int level) {
+    // Check if the value already exists in the tree
+    if (NodeExists(*node, value)) {
+        itexists=1;
+        levelValue--;
+         return;
+        
+    }
+    itexists=0;
+
     if (*node == NULL) {
         *node = (NaryTreeNode*)malloc(sizeof(NaryTreeNode));
         (*node)->data = value;
@@ -58,10 +68,11 @@ void InsertNode(NaryTreeNode** node, int value, int parentValue, int level) {
         for (i = 0; i < (*node)->childCount; ++i) {
             if ((*node)->children[i]->data == parentValue) {
                 InsertNode(&((*node)->children[i]), value, parentValue, level);
-                break;
+                break;  // Break after finding the correct child
             }
         }
 
+        // If the loop didn't break, then the parentValue was not found in the current node's children
         if (i == (*node)->childCount) {
             for (i = 0; i < (*node)->childCount; ++i) {
                 InsertNode(&((*node)->children[i]), value, parentValue, level);
@@ -96,38 +107,47 @@ void DeleteNode(NaryTreeNode** node, int value) {
     }
 }
 
-void SearchNode(NaryTreeNode** node, int value, int x, int y, int radius, float parentAngle) {
+void SearchNode(NaryTreeNode** node, int value, int x, int y, int radius, float parentAngle,int level) {
+
     if ((*node) != NULL) {
         currentNode = *node;
         if ((*node)->data == value) {
             searchResult = 1;
-            DrawCircle(x, y, radius, GREEN);
+            DrawCircle(x, y, radius+5, GREEN);
             searchState = 2;
             return;
+        }else{
+            
+            DrawCircle(x, y, radius+5, YELLOW);
+            searchResult = 0;
         }
 
-        searchResult = 0;
-
         for (int i = 0; i < (*node)->childCount; i++) {
-            float angle = parentAngle + (180.0 / ((*node)->childCount)) * (i + 0.5);
-            float length = radius * 2;
-            Vector2 position = { cos(DEG2RAD * angle), sin(DEG2RAD * angle) };
-            position = Vector2Scale(position, length);
-            position = Vector2Add(position, (Vector2){ (float)x, (float)y });
+        float angle = parentAngle + (180.0 / ((*node)->childCount)) * (i + 0.5);
+        float baseLength = radius * 3;
+        float length = baseLength - (level - 1) * 10;
 
-            SearchNode(&((*node)->children[i]), value, position.x, position.y, radius / 2, angle);
+        Vector2 position = { cos(DEG2RAD * angle), sin(DEG2RAD * angle) };
+        position = Vector2Scale(position, length);
+        position = Vector2Add(position, (Vector2){ (float)x, (float)y });
+        
+
+            SearchNode(&((*node)->children[i]), value, position.x, position.y, radius / 2, parentAngle,level+1);
 
             if (searchResult == 1) {
-                DrawCircle(x, y, radius, GREEN);
+              
+              
                 searchState = 2;
+               
                 return;
-            }
+            } 
         }
 
         if (searchResult == 0) {
             searchState = 3;
-            DrawCircle(x, y, radius, YELLOW);
-        }
+
+        } 
+      
     }
 }
 
@@ -157,7 +177,7 @@ void DrawTreeNode(NaryTreeNode *node, int x, int y, int radius, float parentAngl
         position = Vector2Add(position, (Vector2){ (float)x, (float)y });
         DrawLine(x, y + fontSize / 2, position.x, position.y, LIGHTGRAY);
 
-        DrawTreeNode(node->children[i], position.x, position.y, radius / 2.1, angle, level + 1);
+        DrawTreeNode(node->children[i], position.x, position.y, radius / 2, parentAngle, level + 1);
     }
 }
 
@@ -179,27 +199,28 @@ int main() {
     while (!WindowShouldClose()) {
         Vector2 mousePos = GetMousePosition();
 
-        if ((CheckCollisionPointRec(mousePos, insertButton) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) || (IsKeyPressed(32))) {
+        if ((CheckCollisionPointRec(mousePos, insertButton) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) || (IsKeyPressed(KEY_ENTER))) {
             InsertNode(&root, inputValue, parentValue, levelValue);
             inputValue = 0;
             levelValue++;
         }
 
-        if (CheckCollisionPointRec(mousePos, resetButton) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+        if ((CheckCollisionPointRec(mousePos, resetButton) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON))) {
             DeleteTree(root);
             root = NULL;
         }
 
-        if (CheckCollisionPointRec(mousePos, deleteButton) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+        if ((CheckCollisionPointRec(mousePos, deleteButton) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) || (IsKeyPressed(KEY_DELETE))) {
             DeleteNode(&root, inputValue);
             inputValue = 0;
         }
 
-        if ((CheckCollisionPointRec(mousePos, searchButton) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) || (IsKeyPressed(KEY_ENTER))) {
+        if ((CheckCollisionPointRec(mousePos, searchButton) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) || (IsKeyDown(32))) {
             searchResult = -1;
-            currentNode = NULL;
-            searchState = 1;
-            SearchNode(&root, inputValue, screenWidth / 2, screenHeight / 3, 70, 0);
+            searchState = 0;
+            SearchNode(&root, inputValue, screenWidth / 2, screenHeight / 3, 70, 0,1);
+                 
+          
         }
 
         int key = GetKeyPressed();
@@ -250,12 +271,23 @@ int main() {
         DrawText("Search", searchButton.x + 10, searchButton.y + 10, 15, BLACK);
 
         DrawTreeNode(root, screenWidth / 2, screenHeight / 3, 70, 0, 1);
+        
+        DrawText("Press enter to insert ", 10, 700, 20, GREEN);
+         DrawText("Press delete to delete ", 10, 740, 20, RED);
+          DrawText("hold space to search ", 10, 780, 20, BLUE);
 
         switch (searchState) {
             case 0: searchRectangleColor = GRAY; break;
-            case 1: searchRectangleColor = YELLOW; break;
-            case 2: searchRectangleColor = GREEN; break;
-            case 3: searchRectangleColor = RED; break;
+            case 1: searchRectangleColor = YELLOW;break;
+            case 2: searchRectangleColor = GREEN;
+            DrawText("Value exists", 10, 80, 20, GREEN);
+            break;
+            case 3: searchRectangleColor = RED;
+            DrawText("Value does not exist", 10, 80, 20, RED);
+            break;
+        }
+         if(itexists==1){
+             DrawText("Error: Value already exists", 10, 30, 20, RED);
         }
 
         EndDrawing();
@@ -264,4 +296,4 @@ int main() {
     CloseWindow();
 
     return 0;
-}
+} 

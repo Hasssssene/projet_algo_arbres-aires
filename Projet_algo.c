@@ -193,11 +193,15 @@ int main() {
         if ((CheckCollisionPointRec(mousePos, resetButton) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON))) {
             DeleteTree(root);
             root = NULL;
+            levelValue=1;
+            inputValue = 0;
+            parentValue = 0;
         }
 
         if ((CheckCollisionPointRec(mousePos, deleteButton) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) || (IsKeyPressed(KEY_DELETE))) {
             DeleteNode(&root, inputValue);
             inputValue = 0;
+            levelValue=levelValue-1;
         }
 
         if ((CheckCollisionPointRec(mousePos, searchButton) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) || (IsKeyDown(32))) {

@@ -107,7 +107,7 @@ void DeleteNode(NaryTreeNode** node, int value) {
     }
 }
 
-void SearchNode(NaryTreeNode** node, int value, int x, int y, int radius, float parentAngle,int level) {
+void SearchNode(NaryTreeNode** node, int value, int x, int y,int Width ,  int levelSpacing,int radius) {
 
     if ((*node) != NULL) {
         currentNode = *node;
@@ -122,23 +122,19 @@ void SearchNode(NaryTreeNode** node, int value, int x, int y, int radius, float 
             searchResult = 0;
         }
 
-        for (int i = 0; i < (*node)->childCount; i++) {
-        float angle = parentAngle + (180.0 / ((*node)->childCount)) * (i + 0.5);
-        float baseLength = radius * 3;
-        float length = baseLength - (level - 1) * 10;
+      int horizontalSpacing=Width / (((*node)->childCount)+1);
+        int totalWidth = horizontalSpacing * (((*node)->childCount)-1);
+        int startX = x - totalWidth / 2;
 
-        Vector2 position = { cos(DEG2RAD * angle), sin(DEG2RAD * angle) };
-        position = Vector2Scale(position, length);
-        position = Vector2Add(position, (Vector2){ (float)x, (float)y });
+        for (int i = 0; i < (*node)->childCount; ++i) {
+            int childX = startX + i * horizontalSpacing;
+            int childY = y + levelSpacing;
+            DrawLine(x, y, childX, childY, LIGHTGRAY);    
         
 
-            SearchNode(&((*node)->children[i]), value, position.x, position.y, radius / 2, parentAngle,level+1);
-
-            if (searchResult == 1) {
-              
-              
-                searchState = 2;
-               
+            SearchNode(&((*node)->children[i]), value, childX, childY, Width /(((*node)->childCount)),  levelSpacing/1.5 , radius/1.5);
+            if (searchResult == 1) {                           
+                searchState = 2;               
                 return;
             } 
         }
@@ -146,38 +142,27 @@ void SearchNode(NaryTreeNode** node, int value, int x, int y, int radius, float 
         if (searchResult == 0) {
             searchState = 3;
 
-        } 
-      
+        }      
     }
 }
 
-void DrawTreeNode(NaryTreeNode *node, int x, int y, int radius, float parentAngle, int level) {
-    if (node == NULL) {
-        return;
-    }
 
-    const char *text = TextFormat(" %d", node->data);
-    int fontSize = (int)(radius * 0.45);
+void DrawTree(NaryTreeNode* node, int x, int y,int Width ,  int levelSpacing,int radius) {
+   
+    
+    if (node != NULL) {
+        DrawCircle(x, y, radius, LIGHTGRAY);
+        DrawText(TextFormat("%d", node->data), x - 10, y - 10, 20, BLACK);
+        int horizontalSpacing=Width / ((node->childCount)+1);
+        int totalWidth = horizontalSpacing * ((node->childCount)-1);
+        int startX = x - totalWidth / 2;
 
-    DrawCircle(x, y, radius, LIGHTGRAY);
-    DrawText(text, x - MeasureText(text, fontSize) / 2, y - fontSize / 2, fontSize, BLACK);
-
-    for (int i = 0; i < node->childCount; i++) {
-        if (node->children[i] == NULL) {
-            printf("Child %d of node %d is NULL\n", i, node->data);
-            break;
+        for (int i = 0; i < node->childCount; ++i) {
+            int childX = startX + i * horizontalSpacing;
+            int childY = y + levelSpacing;
+            DrawLine(x, y, childX, childY, LIGHTGRAY);
+            DrawTree(node->children[i], childX, childY, Width /((node->childCount)),  levelSpacing/1.5 , radius/1.5);
         }
-
-        float angle = parentAngle + (180.0 / (node->childCount)) * (i + 0.5);
-        float baseLength = radius * 3;
-        float length = baseLength - (level - 1) * 10;
-
-        Vector2 position = { cos(DEG2RAD * angle), sin(DEG2RAD * angle) };
-        position = Vector2Scale(position, length);
-        position = Vector2Add(position, (Vector2){ (float)x, (float)y });
-        DrawLine(x, y + fontSize / 2, position.x, position.y, LIGHTGRAY);
-
-        DrawTreeNode(node->children[i], position.x, position.y, radius / 2, parentAngle, level + 1);
     }
 }
 
@@ -218,7 +203,7 @@ int main() {
         if ((CheckCollisionPointRec(mousePos, searchButton) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) || (IsKeyDown(32))) {
             searchResult = -1;
             searchState = 0;
-            SearchNode(&root, inputValue, screenWidth / 2, screenHeight / 3, 70, 0,1);
+           SearchNode(&root, inputValue,screenWidth / 2, 150,1900, 200,70);
                  
           
         }
@@ -270,7 +255,7 @@ int main() {
         DrawRectangleRec(searchButton, searchRectangleColor);
         DrawText("Search", searchButton.x + 10, searchButton.y + 10, 15, BLACK);
 
-        DrawTreeNode(root, screenWidth / 2, screenHeight / 3, 70, 0, 1);
+        DrawTree(root, screenWidth / 2, 150,1900, 200,70);
         
         DrawText("Press enter to insert ", 10, 700, 20, GREEN);
          DrawText("Press delete to delete ", 10, 740, 20, RED);
